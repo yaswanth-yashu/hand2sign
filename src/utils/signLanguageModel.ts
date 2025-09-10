@@ -20,7 +20,7 @@ export class SignLanguageModel {
       console.log('Loading TensorFlow.js model...');
       
       // Load the model using your specific files
-      const modelUrl = '/models/model.json';
+      const modelUrl = 'model.json';
       
       // Check if model file exists
       const response = await fetch(modelUrl);

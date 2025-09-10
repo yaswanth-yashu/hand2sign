@@ -17,6 +17,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording, o
     videoRef.current,
     isRecording
   );
+  const [cameraError, setCameraError] = useState<string>('');
 
   // Pass detection results to parent component
   useEffect(() => {
@@ -46,9 +47,12 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording, o
       
       setHasPermission(true);
       setError('');
+      setCameraError('');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Camera access denied';
-      setError(`Camera error: ${errorMessage}. Please enable camera permissions.`);
+      const fullError = `Camera error: ${errorMessage}. Please enable camera permissions.`;
+      setError(fullError);
+      setCameraError(fullError);
       setHasPermission(false);
       console.error('Camera error:', err);
     }
@@ -105,13 +109,23 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording, o
         </div>
 
         <div className="relative bg-gray-900 rounded-xl overflow-hidden aspect-video">
-          {error || modelError ? (
+          {(error || modelError || cameraError) ? (
             <div className="absolute inset-0 flex items-center justify-center text-white">
               <div className="text-center">
-                {error ? (
+                {(error || cameraError) ? (
                   <>
                     <CameraOff className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-300">{error}</p>
+                    <p className="text-gray-300">{error || cameraError}</p>
+                    <button 
+                      onClick={() => {
+                        setError('');
+                        setCameraError('');
+                        if (isRecording) startCamera();
+                      }}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Retry Camera
+                    </button>
                   </>
                 ) : (
                   <>
@@ -208,7 +222,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording, o
           )}
           
           {/* Current character overlay */}
-          {isRecording && currentCharacter && confidence > 0.5 && (
+          {isRecording && currentCharacter && confidence > 0.3 && (
             <div className="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
               <div className="text-2xl font-bold">{currentCharacter}</div>
               <div className="text-xs text-gray-300">{(confidence * 100).toFixed(1)}%</div>

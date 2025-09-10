@@ -15,14 +15,14 @@ const CharacterDisplay: React.FC<CharacterDisplayProps> = ({
   onAddCharacter
 }) => {
   const getConfidenceColor = (conf: number) => {
-    if (conf >= 0.8) return 'text-green-600 bg-green-100';
-    if (conf >= 0.6) return 'text-yellow-600 bg-yellow-100';
+    if (conf >= 0.7) return 'text-green-600 bg-green-100';
+    if (conf >= 0.4) return 'text-yellow-600 bg-yellow-100';
     return 'text-red-600 bg-red-100';
   };
 
   const getConfidenceText = (conf: number) => {
-    if (conf >= 0.8) return 'High Confidence';
-    if (conf >= 0.6) return 'Medium Confidence';
+    if (conf >= 0.7) return 'High Confidence';
+    if (conf >= 0.4) return 'Medium Confidence';
     return 'Low Confidence';
   };
 
@@ -67,7 +67,12 @@ const CharacterDisplay: React.FC<CharacterDisplayProps> = ({
 
           <button
             onClick={() => onAddCharacter(character)}
-            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium py-3 px-4 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center space-x-2"
+            disabled={confidence < 0.3}
+            className={`w-full font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 ${
+              confidence >= 0.3 
+                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
             <Plus className="w-4 h-4" />
             <span>Add to Sentence</span>

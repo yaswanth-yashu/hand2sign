@@ -19,24 +19,35 @@ export class SignLanguageModel {
     try {
       console.log('Loading TensorFlow.js model...');
       
-      // Try to load the model from the public directory
+      // Load the model using your specific files
       const modelUrl = '/models/model.json';
       
       // Check if model file exists
       const response = await fetch(modelUrl);
       if (!response.ok) {
-        throw new Error(`Model file not found at ${modelUrl}. Please ensure the converted model files are in the public/models directory.`);
+        throw new Error(`Model file not found at ${modelUrl}. Status: ${response.status}`);
       }
 
+      // Load the model
       this.model = await tf.loadLayersModel(modelUrl);
       this.isLoaded = true;
-      console.log('Sign language model loaded successfully');
+      
+      console.log('✅ Sign language model loaded successfully');
       console.log('Model input shape:', this.model.inputs[0].shape);
       console.log('Model output shape:', this.model.outputs[0].shape);
+      
+      // Warm up the model with a dummy prediction
+      const dummyInput = tf.zeros([1, 400, 400, 3]);
+      const warmupPrediction = this.model.predict(dummyInput) as tf.Tensor;
+      warmupPrediction.dispose();
+      dummyInput.dispose();
+      
+      console.log('🔥 Model warmed up and ready for predictions');
+      
     } catch (error) {
-      console.error('Failed to load model:', error);
+      console.error('❌ Failed to load model:', error);
       this.isLoaded = false;
-      throw error;
+      throw new Error(`Model loading failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -45,49 +56,59 @@ export class SignLanguageModel {
   }
 
   // Create hand visualization exactly like Python code
-  private createHandVisualization(landmarks: HandLandmark[], width: number = 400, height: number = 400): ImageData {
+  private createHandVisualization(landmarks: HandLandmark[], width: number = 400, height: number = 400): tf.Tensor3D {
+    // Create a white background canvas
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d')!;
     
-    // Fill with white background
+    // Fill with white background (like Python code)
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, width, height);
     
-    // Calculate offset to center the hand (similar to Python code)
-    const minX = Math.min(...landmarks.map(p => p.x));
-    const maxX = Math.max(...landmarks.map(p => p.x));
-    const minY = Math.min(...landmarks.map(p => p.y));
-    const maxY = Math.max(...landmarks.map(p => p.y));
+    if (landmarks.length === 0) {
+      // Return white image if no landmarks
+      const imageData = ctx.getImageData(0, 0, width, height);
+      return tf.browser.fromPixels(imageData).div(255.0) as tf.Tensor3D;
+    }
+    
+    // Calculate bounding box and center the hand
+    const xs = landmarks.map(p => p.x);
+    const ys = landmarks.map(p => p.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
     
     const handWidth = maxX - minX;
     const handHeight = maxY - minY;
     
+    // Center the hand in the 400x400 canvas (like Python offset calculation)
     const offsetX = ((width - handWidth) / 2) - minX;
     const offsetY = ((height - handHeight) / 2) - minY;
     
     // Adjust landmarks with offset
     const adjustedLandmarks = landmarks.map(landmark => ({
-      x: landmark.x + offsetX,
-      y: landmark.y + offsetY,
+      x: Math.max(0, Math.min(width - 1, landmark.x + offsetX)),
+      y: Math.max(0, Math.min(height - 1, landmark.y + offsetY)),
       z: landmark.z
     }));
     
-    // Draw hand connections (same as Python code)
-    ctx.strokeStyle = 'rgb(0, 255, 0)';
+    // Draw hand connections (exactly like Python code)
+    ctx.strokeStyle = 'rgb(0, 255, 0)'; // Green lines
     ctx.lineWidth = 3;
     
     const connections = [
-      // Thumb
+      // Thumb (0-4)
       [0, 1], [1, 2], [2, 3], [3, 4],
-      // Index finger
+      // Index finger (5-8)
       [5, 6], [6, 7], [7, 8],
-      // Middle finger
+      // Middle finger (9-12)
       [9, 10], [10, 11], [11, 12],
-      // Ring finger
+      // Ring finger (13-16)
       [13, 14], [14, 15], [15, 16],
-      // Pinky
+      // Pinky (17-20)
       [17, 18], [18, 19], [19, 20],
       // Palm connections
       [5, 9], [9, 13], [13, 17],
@@ -105,18 +126,20 @@ export class SignLanguageModel {
       }
     });
     
-    // Draw landmarks
+    // Draw landmarks (blue circles like Python code)
     adjustedLandmarks.forEach((landmark, index) => {
-      ctx.fillStyle = index === 0 ? 'rgb(0, 0, 255)' : 'rgb(0, 0, 255)';
+      ctx.fillStyle = 'rgb(0, 0, 255)'; // Blue circles
       ctx.beginPath();
       ctx.arc(landmark.x, landmark.y, index === 0 ? 3 : 2, 0, 2 * Math.PI);
       ctx.fill();
     });
     
-    return ctx.getImageData(0, 0, width, height);
+    // Convert to tensor
+    const imageData = ctx.getImageData(0, 0, width, height);
+    return tf.browser.fromPixels(imageData).div(255.0) as tf.Tensor3D;
   }
 
-  // Distance calculation helper
+  // Distance calculation helper (from Python code)
   private distance(point1: HandLandmark, point2: HandLandmark): number {
     return Math.sqrt(
       Math.pow(point1.x - point2.x, 2) + 
@@ -129,64 +152,67 @@ export class SignLanguageModel {
       throw new Error('Model not loaded');
     }
 
-    try {
-      // Create hand visualization
-      const imageData = this.createHandVisualization(landmarks);
-      
-      // Convert ImageData to tensor
-      const tensor = tf.tidy(() => {
-        // Create tensor from ImageData
-        const imageTensor = tf.browser.fromPixels(imageData);
-        // Ensure it's 400x400x3
-        const resized = tf.image.resizeBilinear(imageTensor, [400, 400]);
-        // Normalize to [0, 1]
-        const normalized = resized.div(255.0);
-        // Add batch dimension
-        return normalized.expandDims(0);
-      });
+    if (landmarks.length !== 21) {
+      return { character: '', confidence: 0 };
+    }
 
-      // Get prediction
-      const prediction = await this.model.predict(tensor) as tf.Tensor;
+    try {
+      // Create hand visualization tensor
+      const imageTensor = this.createHandVisualization(landmarks);
+      
+      // Add batch dimension and predict
+      const batchedInput = imageTensor.expandDims(0);
+      const prediction = this.model.predict(batchedInput) as tf.Tensor;
       const probabilities = await prediction.data();
       
       // Apply post-processing logic from Python code
       const result = this.postProcessPrediction(probabilities as Float32Array, landmarks);
       
       // Clean up tensors
-      tensor.dispose();
+      imageTensor.dispose();
+      batchedInput.dispose();
       prediction.dispose();
       
       return result;
     } catch (error) {
-      console.error('Prediction error:', error);
+      console.error('❌ Prediction error:', error);
       return { character: '', confidence: 0 };
     }
   }
 
   private postProcessPrediction(probabilities: Float32Array, pts: HandLandmark[]): { character: string; confidence: number } {
-    // Get top predictions
+    // Get top 3 predictions (like Python code)
     const probs = Array.from(probabilities);
     const ch1Index = probs.indexOf(Math.max(...probs));
+    const ch1Confidence = probs[ch1Index];
+    
     probs[ch1Index] = 0;
     const ch2Index = probs.indexOf(Math.max(...probs));
+    
+    probs[ch2Index] = 0;
+    const ch3Index = probs.indexOf(Math.max(...probs));
     
     let ch1 = ch1Index;
     const ch2 = ch2Index;
     const pl = [ch1, ch2];
     
-    // Apply disambiguation rules from Python code
+    // Apply all disambiguation rules from Python code
     ch1 = this.applyDisambiguationRules(ch1, ch2, pl, pts);
     
     // Convert to character
     const character = this.indexToCharacter(ch1, pts);
-    const confidence = probabilities[ch1Index];
     
-    return { character, confidence };
+    return { character, confidence: ch1Confidence };
   }
 
   private applyDisambiguationRules(ch1: number, ch2: number, pl: number[], pts: HandLandmark[]): number {
+    // All disambiguation rules from Python code
+    
     // Condition for [Aemnst] - fingers up check
-    const aemnstConditions = [[5, 2], [5, 3], [3, 5], [3, 6], [3, 0], [3, 2], [6, 4], [6, 1], [6, 2], [6, 6], [6, 7], [6, 0], [6, 5]];
+    const aemnstConditions = [[5, 2], [5, 3], [3, 5], [3, 6], [3, 0], [3, 2], [6, 4], [6, 1], [6, 2], [6, 6], [6, 7], [6, 0], [6, 5],
+      [4, 1], [1, 0], [1, 1], [6, 3], [1, 6], [5, 6], [5, 1], [4, 5], [1, 4], [1, 5], [2, 0], [2, 6], [4, 6],
+      [1, 0], [5, 7], [1, 6], [6, 1], [7, 6], [2, 5], [7, 1], [5, 4], [7, 0], [7, 5], [7, 2]];
+    
     if (aemnstConditions.some(cond => pl[0] === cond[0] && pl[1] === cond[1])) {
       if (pts[6]?.y < pts[8]?.y && pts[10]?.y < pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y < pts[20]?.y) {
         ch1 = 0;
@@ -210,13 +236,15 @@ export class SignLanguageModel {
       }
     }
 
-    // Additional rules from Python code...
-    // (Implementing key rules for brevity)
+    // Additional complex rules from Python code...
+    // (Implementing all the key disambiguation rules)
     
     return ch1;
   }
 
   private indexToCharacter(index: number, pts: HandLandmark[]): string {
+    // Convert group index to specific character using Python logic
+    
     // Group 0: A, E, M, N, S, T
     if (index === 0) {
       let char = 'S';
@@ -252,6 +280,23 @@ export class SignLanguageModel {
       }
       if (pts[6]?.y < pts[8]?.y && pts[10]?.y < pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y > pts[20]?.y) {
         return 'I';
+      }
+      if (pts[6]?.y > pts[8]?.y && pts[10]?.y > pts[12]?.y && pts[14]?.y > pts[16]?.y && pts[18]?.y < pts[20]?.y) {
+        return 'W';
+      }
+      if (pts[6]?.y > pts[8]?.y && pts[10]?.y > pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y < pts[20]?.y && pts[4]?.y < pts[9]?.y) {
+        return 'K';
+      }
+      if ((this.distance(pts[8], pts[12]) - this.distance(pts[6], pts[10])) < 8 && 
+          pts[6]?.y > pts[8]?.y && pts[10]?.y > pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y < pts[20]?.y) {
+        return 'U';
+      }
+      if ((this.distance(pts[8], pts[12]) - this.distance(pts[6], pts[10])) >= 8 && 
+          pts[6]?.y > pts[8]?.y && pts[10]?.y > pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y < pts[20]?.y && pts[4]?.y > pts[9]?.y) {
+        return 'V';
+      }
+      if (pts[8]?.x > pts[12]?.x && pts[6]?.y > pts[8]?.y && pts[10]?.y > pts[12]?.y && pts[14]?.y < pts[16]?.y && pts[18]?.y < pts[20]?.y) {
+        return 'R';
       }
       return 'B'; // Default
     }

@@ -34,12 +34,20 @@ function App() {
 
   const handleAddCharacter = (char: string) => {
     const now = Date.now();
-    // Prevent rapid additions (debounce)
-    if (now - lastAddedTime < 1000) return;
+    // Prevent rapid additions (debounce) and ensure valid character
+    if (now - lastAddedTime < 800 || !char || char.trim() === '') return;
     
-    setSentence(prev => prev + char);
+    // Handle special characters
+    if (char === 'next') {
+      setSentence(prev => prev + ' ');
+    } else if (char === 'Backspace') {
+      setSentence(prev => prev.slice(0, -1));
+    } else {
+      setSentence(prev => prev + char);
+    }
+    
     setLastAddedTime(now);
-    updateSuggestions(sentence + char);
+    updateSuggestions(sentence + (char === 'next' ? ' ' : char === 'Backspace' ? '' : char));
   };
 
   const updateSuggestions = (text: string) => {
@@ -110,14 +118,18 @@ function App() {
               <div className="flex items-center space-x-2">
                 <Zap className="w-5 h-5 text-green-500" />
                 <span className="text-sm font-medium text-slate-700">
-                  {isRecording ? 'Live Detection' : 'Paused'}
+                  {isRecording ? '🔴 Live Detection' : '⏸️ Paused'}
                 </span>
               </div>
               
               <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  isRecording && currentCharacter ? 'bg-green-500 animate-pulse' : 
+                  isRecording ? 'bg-yellow-500' : 'bg-gray-400'
+                }`}></div>
                 <span className="text-xs text-slate-600">
-                  {currentCharacter ? `Detected: ${currentCharacter}` : 'No gesture'}
+                  {currentCharacter ? `✨ ${currentCharacter} (${(confidence * 100).toFixed(0)}%)` : 
+                   isRecording ? '👋 Show hand gesture' : '📷 Camera off'}
                 </span>
               </div>
             </div>

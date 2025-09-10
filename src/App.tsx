@@ -46,16 +46,27 @@ function App() {
     const words = text.trim().split(' ');
     const currentWord = words[words.length - 1];
     
-    // Use the enhanced word suggestion engine
-    const suggestions = wordSuggestionEngine.getSuggestions(currentWord, 4);
-    setSuggestions(suggestions);
+    if (currentWord && currentWord.length > 0) {
+      // Use the enhanced word suggestion engine
+      const suggestions = wordSuggestionEngine.getSuggestions(currentWord, 4);
+      setSuggestions(suggestions);
+    } else {
+      setSuggestions([]);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     const words = sentence.trim().split(' ');
-    words[words.length - 1] = suggestion;
-    setSentence(words.join(' ') + ' ');
+    if (words.length > 0) {
+      words[words.length - 1] = suggestion;
+      setSentence(words.join(' ') + ' ');
+    } else {
+      setSentence(suggestion + ' ');
+    }
     setSuggestions([]);
+    
+    // Record the selection to improve future suggestions
+    wordSuggestionEngine.recordSelection(suggestion);
   };
 
   const handleSpeak = async () => {
@@ -99,7 +110,14 @@ function App() {
               <div className="flex items-center space-x-2">
                 <Zap className="w-5 h-5 text-green-500" />
                 <span className="text-sm font-medium text-slate-700">
-                  {isRecording ? 'Live' : 'Paused'}
+                  {isRecording ? 'Live Detection' : 'Paused'}
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                <span className="text-xs text-slate-600">
+                  {currentCharacter ? `Detected: ${currentCharacter}` : 'No gesture'}
                 </span>
               </div>
             </div>

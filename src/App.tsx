@@ -6,6 +6,7 @@ import SentenceBuilder from './components/SentenceBuilder';
 import WordSuggestions from './components/WordSuggestions';
 import ControlPanel from './components/ControlPanel';
 import HandVisualization from './components/HandVisualization';
+import { wordSuggestionEngine } from './utils/wordSuggestions';
 
 function App() {
   const [currentCharacter, setCurrentCharacter] = useState<string>('');
@@ -15,34 +16,29 @@ function App() {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [handLandmarks, setHandLandmarks] = useState<any[]>([]);
   const [confidence, setConfidence] = useState<number>(0);
+  const [characterHistory, setCharacterHistory] = useState<string[]>([]);
+  const [lastAddedTime, setLastAddedTime] = useState<number>(0);
 
-  // Mock predictions for demonstration
-  const mockCharacters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-  
-  useEffect(() => {
-    // Simulate real-time character detection
-    if (isRecording) {
-      const interval = setInterval(() => {
-        const randomChar = mockCharacters[Math.floor(Math.random() * mockCharacters.length)];
-        const randomConfidence = Math.random() * 0.4 + 0.6; // 60-100% confidence
-        setCurrentCharacter(randomChar);
-        setConfidence(randomConfidence);
-        
-        // Generate mock hand landmarks
-        const mockLandmarks = Array.from({ length: 21 }, (_, i) => ({
-          x: Math.random() * 400 + 50,
-          y: Math.random() * 400 + 50,
-          z: Math.random() * 100
-        }));
-        setHandLandmarks(mockLandmarks);
-      }, 2000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isRecording]);
+  // Handle real hand detection results
+  const handleHandDetection = (character: string, conf: number, landmarks: any[]) => {
+    setCurrentCharacter(character);
+    setConfidence(conf);
+    setHandLandmarks(landmarks);
+    
+    // Update character history for stability
+    setCharacterHistory(prev => {
+      const newHistory = [...prev, character].slice(-5); // Keep last 5 characters
+      return newHistory;
+    });
+  };
 
   const handleAddCharacter = (char: string) => {
+    const now = Date.now();
+    // Prevent rapid additions (debounce)
+    if (now - lastAddedTime < 1000) return;
+    
     setSentence(prev => prev + char);
+    setLastAddedTime(now);
     updateSuggestions(sentence + char);
   };
 
@@ -50,15 +46,9 @@ function App() {
     const words = text.trim().split(' ');
     const currentWord = words[words.length - 1];
     
-    // Mock word suggestions
-    const mockSuggestions = [
-      `${currentWord}ello`,
-      `${currentWord}ouse`,
-      `${currentWord}appy`,
-      `${currentWord}elp`
-    ].filter(word => word.length > currentWord.length);
-    
-    setSuggestions(mockSuggestions.slice(0, 4));
+    // Use the enhanced word suggestion engine
+    const suggestions = wordSuggestionEngine.getSuggestions(currentWord, 4);
+    setSuggestions(suggestions);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -124,6 +114,7 @@ function App() {
             <VideoFeed 
               isRecording={isRecording}
               onToggleRecording={toggleRecording}
+              onHandDetection={handleHandDetection}
             />
             
             <HandVisualization 

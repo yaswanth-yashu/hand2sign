@@ -1,5 +1,6 @@
 import React from 'react';
 import { Hand, Activity } from 'lucide-react';
+import { HAND_CONNECTIONS } from '../utils/handLandmarks';
 
 interface HandVisualizationProps {
   landmarks: any[];
@@ -24,8 +25,23 @@ const HandVisualization: React.FC<HandVisualizationProps> = ({ landmarks, isActi
       <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
         {isActive && landmarks.length > 0 ? (
           <div className="relative">
-            <svg className="w-full h-48" viewBox="0 0 400 300">
-              {/* Hand landmarks visualization */}
+            <svg className="w-full h-48" viewBox="0 0 400 400">
+              {/* Connection lines */}
+              {HAND_CONNECTIONS.map(([start, end], index) => (
+                landmarks[start] && landmarks[end] && (
+                  <line
+                    key={`connection-${index}`}
+                    x1={landmarks[start].x}
+                    y1={landmarks[start].y}
+                    x2={landmarks[end].x}
+                    y2={landmarks[end].y}
+                    stroke="#8B5CF6"
+                    strokeWidth="2"
+                  />
+                )
+              ))}
+              
+              {/* Hand landmarks */}
               {landmarks.map((point, index) => (
                 <circle
                   key={index}
@@ -34,18 +50,8 @@ const HandVisualization: React.FC<HandVisualizationProps> = ({ landmarks, isActi
                   r={index === 0 ? 6 : 4}
                   fill={index === 0 ? '#8B5CF6' : '#A78BFA'}
                   fillOpacity={0.8}
-                  className="animate-pulse"
                 />
               ))}
-              
-              {/* Connection lines (simplified) */}
-              {landmarks.length >= 21 && (
-                <>
-                  <line x1={landmarks[0].x} y1={landmarks[0].y} x2={landmarks[1].x} y2={landmarks[1].y} stroke="#8B5CF6" strokeWidth="2" />
-                  <line x1={landmarks[0].x} y1={landmarks[0].y} x2={landmarks[5].x} y2={landmarks[5].y} stroke="#8B5CF6" strokeWidth="2" />
-                  <line x1={landmarks[0].x} y1={landmarks[0].y} x2={landmarks[17].x} y2={landmarks[17].y} stroke="#8B5CF6" strokeWidth="2" />
-                </>
-              )}
             </svg>
             
             <div className="absolute top-2 right-2 flex items-center space-x-2 bg-purple-500 text-white px-3 py-1 rounded-full text-xs">

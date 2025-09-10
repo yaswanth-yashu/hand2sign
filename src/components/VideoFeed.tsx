@@ -1,16 +1,29 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Camera, CameraOff, Play, Pause } from 'lucide-react';
+import { useHandDetection } from '../hooks/useHandDetection';
 
 interface VideoFeedProps {
   isRecording: boolean;
   onToggleRecording: () => void;
+  onHandDetection: (character: string, confidence: number, landmarks: any[]) => void;
 }
 
-const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording }) => {
+const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording, onHandDetection }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  
+  const { handResults, currentCharacter, confidence, isModelLoaded } = useHandDetection(
+    videoRef.current,
+    isRecording
+  );
 
+  // Pass detection results to parent component
+  useEffect(() => {
+    if (currentCharacter && confidence > 0) {
+      onHandDetection(currentCharacter, confidence, handResults?.landmarks || []);
+    }
+  }, [currentCharacter, confidence, handResults, onHandDetection]);
   useEffect(() => {
     if (isRecording) {
       startCamera();
@@ -94,6 +107,9 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording })
               <div className="text-center">
                 <CameraOff className="w-16 h-16 mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-300">{error}</p>
+                {!isModelLoaded && (
+                  <p className="text-yellow-300 mt-2">Loading AI model...</p>
+                )}
               </div>
             </div>
           ) : (
@@ -106,24 +122,36 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ isRecording, onToggleRecording })
             />
           )}
           
+          {/* Model loading indicator */}
+          {!isModelLoaded && (
+            <div className="absolute top-4 left-4 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm">
+              Loading Model...
+            </div>
+          )}
+          
           {/* Recording indicator */}
-          {isRecording && (
+          {isRecording && isModelLoaded && (
             <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500 text-white px-3 py-1 rounded-full text-sm">
               <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
               <span>LIVE</span>
             </div>
           )}
           
-          {/* Hand detection overlay placeholder */}
-          {isRecording && (
+          {/* Hand detection overlay */}
+          {isRecording && handResults && (
             <div className="absolute inset-0 pointer-events-none">
-              <svg className="w-full h-full" viewBox="0 0 640 480">
-                {/* Mock hand outline */}
-                <circle cx="320" cy="200" r="8" fill="lime" fillOpacity="0.8" />
-                <circle cx="300" cy="180" r="6" fill="lime" fillOpacity="0.6" />
-                <circle cx="340" cy="180" r="6" fill="lime" fillOpacity="0.6" />
-                <circle cx="320" cy="160" r="6" fill="lime" fillOpacity="0.6" />
-                <circle cx="320" cy="140" r="6" fill="lime" fillOpacity="0.6" />
+              <svg className="w-full h-full" viewBox="0 0 640 480" style={{ transform: 'scaleX(-1)' }}>
+                {/* Real hand landmarks */}
+                {handResults.landmarks.map((landmark, index) => (
+                  <circle
+                    key={index}
+                    cx={landmark.x * 640 / 400}
+                    cy={landmark.y * 480 / 400}
+                    r={index === 0 ? 6 : 4}
+                    fill="lime"
+                    fillOpacity={index === 0 ? 0.9 : 0.7}
+                  />
+                ))}
               </svg>
             </div>
           )}

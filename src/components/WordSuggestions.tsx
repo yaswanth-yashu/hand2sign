@@ -1,5 +1,6 @@
 import React from 'react';
 import { Lightbulb } from 'lucide-react';
+import { wordSuggestionEngine } from '../utils/wordSuggestions';
 
 interface WordSuggestionsProps {
   suggestions: string[];
@@ -7,6 +8,12 @@ interface WordSuggestionsProps {
 }
 
 const WordSuggestions: React.FC<WordSuggestionsProps> = ({ suggestions, onSuggestionClick }) => {
+  const handleSuggestionClick = (suggestion: string) => {
+    // Record the selection to improve future suggestions
+    wordSuggestionEngine.recordSelection(suggestion);
+    onSuggestionClick(suggestion);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6">
       <div className="flex items-center space-x-3 mb-4">
@@ -24,7 +31,7 @@ const WordSuggestions: React.FC<WordSuggestionsProps> = ({ suggestions, onSugges
           {suggestions.map((suggestion, index) => (
             <button
               key={index}
-              onClick={() => onSuggestionClick(suggestion)}
+              onClick={() => handleSuggestionClick(suggestion)}
               className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors duration-200 border border-transparent hover:border-blue-200"
             >
               <span className="font-medium">{suggestion}</span>
